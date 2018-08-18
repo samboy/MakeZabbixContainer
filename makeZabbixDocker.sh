@@ -1,33 +1,5 @@
 #!/bin/sh
 
-cat > /dev/null << EOF
-BSD 2-Clause License
-
-Copyright (c) 2018, Sam Trenholme
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-* Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
-* Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-EOF
-
 # Just in case
 docker stop $(docker ps -q) ; docker rm $(docker ps -a -q)
 
@@ -65,6 +37,12 @@ sed -i '/excludedocs/d' /etc/rpm/macros.imgcreate
 docker exec $DOCKERID \
 sed -i '/nodocs/d' /etc/yum.conf
 
+# Add a Nginx server, which needs EPEL 
+docker exec -it $DOCKERID \
+yum -y install epel-release
+docker exec -it $DOCKERID \
+yum -y install nginx
+
 #### INSTALL ZABBIX ####
 
 # This is current as of 2018-08-15
@@ -98,6 +76,7 @@ sleep 20
 EOF
 
 docker cp setup.mysql.sh $DOCKERID:/
+#docker cp zabbix.sql.gz $DOCKERID:/
 docker exec -it $DOCKERID \
 bash /setup.mysql.sh
 
@@ -105,24 +84,58 @@ bash /setup.mysql.sh
 cat > zabbix.conf.php << EOF
 <?php
 // Zabbix GUI configuration file.
-global $DB;
+global \$DB;
 
-$DB['TYPE']     = 'MYSQL';
-$DB['SERVER']   = 'localhost';
-$DB['PORT']     = '0';
-$DB['DATABASE'] = 'zabbix';
-$DB['USER']     = 'zabbix';
-$DB['PASSWORD'] = 'foo';
+\$DB['TYPE']     = 'MYSQL';
+\$DB['SERVER']   = 'localhost';
+\$DB['PORT']     = '0';
+\$DB['DATABASE'] = 'zabbix';
+\$DB['USER']     = 'zabbix';
+\$DB['PASSWORD'] = 'foo';
 
 // Schema name. Used for IBM DB2 and PostgreSQL.
-$DB['SCHEMA'] = '';
+\$DB['SCHEMA'] = '';
 
-$ZBX_SERVER      = 'localhost';
-$ZBX_SERVER_PORT = '10051';
-$ZBX_SERVER_NAME = '';
+\$ZBX_SERVER      = 'localhost';
+\$ZBX_SERVER_PORT = '10051';
+\$ZBX_SERVER_NAME = '';
 
-$IMAGE_FORMAT_DEFAULT = IMAGE_FORMAT_PNG;
+\$IMAGE_FORMAT_DEFAULT = IMAGE_FORMAT_PNG;
 EOF
 
 docker cp zabbix.conf.php $DOCKERID:/etc/zabbix/web/
+docker exec -it $DOCKERID chmod 644 /etc/zabbix/web/zabbix.conf.php
+docker exec -it $DOCKERID chown apache /etc/zabbix/web/zabbix.conf.php
+
+cat > /dev/null << EOF
+
+OK, let's log in to Zabbix.  Go to http://127.0.0.1:8080 then log
+in as Username "Admin", Password "zabbix".
+
+At this point, we can go in to the dashboard then:
+
+1) CPU usage: Edit Dashboard -> Add Widget -> Type: Graph ->
+	Select: CPU load
+
+2) Memory: Edit Dashboard -> Add Widget -> Type: Graph ->
+	Select: Memory usage
+
+For network and disk usage, we need to add items for those two.
+
+* Go to Configuration -> Hosts
+* Make sure there is a host called "Zabbix server" ("Create Host" if there
+  is not)
+* Click on the name "Zabbix server"
+* Below "Hosts", click on "Items"
+* Click on the blue "Create item" button on the upper right
+* Create a "network" item with the key "net.if.total[eth0,bytes]" (no quotes)
+* Create a "diskUsage" item with the key "vfs.fs.size[/,used]" (no quotes)
+
+Now, save the items and go back to Monitoring -> Dashboard, then click on
+"Edit Dashboard".  Once there, Add Widget -> Type: Graph -> Simple Graph
+then select the "network" and "diskUsage" items created above.
+
+This will make the dashboard as required for this assignment.
+EOF
+
 
