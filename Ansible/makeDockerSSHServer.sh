@@ -24,6 +24,8 @@ yum -y install openssh-server
 #ssh-keygen -f /etc/ssh/ssh_host_rsa_key -N '' -t rsa -b 2048
 # Use use a fixed key so known_hosts does not need to be updated every time
 # we make a new container
+# NOTE: DO NOT USE THIS FILE FOR ANYTHING THAT MATTERS!  Instead, use
+# the above ssh-keygen command to make another one.
 cat > ssh_host_rsa_key << EOF
 -----BEGIN RSA PRIVATE KEY-----
 MIIEogIBAAKCAQEA1NvJvPOV/kgqLNzYXUwRHZzY7qmKb+b6ceOVNgxZTh8/hQsd
