@@ -82,7 +82,7 @@ docker exec -it $DOCKERID sh /set_pw.sh
 
 # SSH in is dog slow because of DNS weirdness
 cat > zap.resolv.conf << EOF
-echo nameserver 127.0.0.1 > /etc/resolv.conf
+echo nameserver 8.8.8.8 > /etc/resolv.conf
 EOF
 docker cp zap.resolv.conf $DOCKERID:/
 docker exec -it $DOCKERID sh /zap.resolv.conf
